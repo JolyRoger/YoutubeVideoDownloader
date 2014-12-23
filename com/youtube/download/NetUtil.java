@@ -42,7 +42,7 @@ public class NetUtil {
         if (videoInfo == null)
             videoInfo = StringUtil.getParameter(getVideoInfo(StringUtil.getParameter(url.trim(), "\\?", "v")), "", StringUtil.VIDEO_STREAM);
         if (videoInfo == null) throw new RuntimeException("Can't obtain video info");
-        Log.print("Undecoded videoInfo: " + videoInfo, YT.Mode.Debug, true);
+        Log.print("Undecoded videoInfo: " + videoInfo + '\n', YT.Mode.Debug, true);
         return StringUtil.decode(videoInfo);
     }
 

@@ -5,16 +5,14 @@ import java.net.URL;
 import java.util.*;
 
 /**
-* Created by Daniil Monakhov on 12/12/14.
-*
 * Java or Scala code which downloads mp4 video from youtube url,
 * i.e. given an url like this https://www.youtube.com/watch?v=JGku8J7Wb6Y
 * it should discover mp4 video there and download it locally.
 * The code should be in a runnable jar, so that it can be run like this:
 * java -jar video_dowloader.jar https://www.youtube.com/watch?v=JGku8J7Wb6Y
-*
 */
 public class YT {
+
     enum Mode {
         Silent, Info, Debug
     }
@@ -26,13 +24,16 @@ public class YT {
     private static boolean GET_FROM_MAIN_PAGE = true;
     private static HashMap<String, String> pars = null;
     private static final String VIDEO_LINK = "link";
-    private static final String VALIDATION_ERROR_MESSAGE = "Please type or paste valid youtube video URL";
-    private static final String COMMON_ERROR_MESSAGE = "Can't download youtube video: ";
+    private static final String COMMON_INFO = "You can also use -silent -info or -debug options to define output stream " +
+            "severity. (" + mode + " by default)";
+    private static final String VALIDATION_ERROR_MESSAGE = "Please type or paste valid youtube URL";
+    private static final String COMMON_ERROR_MESSAGE = "Can't download youtube video. ";
     private static final String PARAMETERS_TO_REMOVE = "fallback_host,type,codecs,quality," + VIDEO_LINK;
     static final String VIDEO_INFO_URL = "http://www.youtube.com/get_video_info?el=detailpage&asv=3&video_id=";
     private static final String VIDEO_STREAM = "url_encoded_fmt_stream_map";
     private static final String TITLE = "title";
     private static final String YOUTUBE_REGEX = "^(?:https?:\\/\\/)?(?:www\\.)?(?:youtu\\.be\\/|youtube\\.com\\/(?:embed\\/|v\\/|watch\\?v=|watch\\?.+&v=))((\\w|-){11})(?:\\S+)?$";
+//    private static final String YOUTUBE_REGEX = "^(?:https?:\\/\\/)?(?:www\\.)?(?:youtu\\.be\\/|youtube\\.com\\/(?:embed\\/|v\\/|watch\\?v=|watch\\?.+&v=))((\\w|-){11})(?:\\S+)?$";
 
     private synchronized static void saveYoutubeFile(String url) {
         try {
@@ -42,9 +43,10 @@ public class YT {
             Log.print("Title: " + title, Mode.Info, true);
             Log.print("Link to video: " + info.get(YoutubeVideoInfo.Link), Mode.Debug, true);
             NetUtil.saveToDisk(new URL(info.get(YoutubeVideoInfo.Link)), title + ".mp4");
-//            NetUtil.saveToDisk(new URL(info.get(YoutubeVideoInfo.Link)), (title.matches(YT.FILENAME_REGEX) ? title : "video" +
-//                    timestamp()) + ".mp4");
         } catch (IOException e) {
+            Log.print(COMMON_ERROR_MESSAGE, Mode.Silent, false);
+            Log.print(e.getMessage(), Mode.Debug, false);
+        } catch (RuntimeException e) {
             Log.print(COMMON_ERROR_MESSAGE, Mode.Silent, false);
             Log.print(e.getMessage(), Mode.Debug, false);
         }
@@ -58,7 +60,7 @@ public class YT {
         if (GET_FROM_MAIN_PAGE) streamMap = NetUtil.getVideoInfo2(url);
         else streamMap = StringUtil.getParameter(NetUtil.getVideoInfo(videoId), "", VIDEO_STREAM);
 
-        Log.print("Decoded videoInfo: " + streamMap, Mode.Debug, true);
+        Log.print("Decoded videoInfo: " + streamMap + '\n', Mode.Debug, true);
         if (streamMap == null) {
             throw new IOException("Video information does not contain link to mp4");
         }
@@ -130,8 +132,11 @@ public class YT {
             if (contains(s, remove)) continue;
             String sig = data.get(s);
             if ("s".equals(s) || "sig".equals(s) || "signature".equals(s) && sig.length() > 81) {       // 81 is 40.40 - length of unscrambled youtube signature
+                Log.print("Video is crypted", Mode.Info, true);
                 sb.append(s + "=" + Decipher.decipher(sig, url) + StringUtil.AMP);
-            } else sb.append(s + "=" + data.get(s) + StringUtil.AMP);
+            } else {
+                sb.append(s + "=" + data.get(s) + StringUtil.AMP);
+            }
         }
         return sb.substring(0, sb.length()-1);
     }
@@ -148,11 +153,14 @@ public class YT {
    public static void main(String... args) {
        if (args.length == 0) {
            Log.print(VALIDATION_ERROR_MESSAGE, Mode.Silent, false);
+           Log.print(COMMON_INFO, Mode.Silent, true);
        } else {
            if (args.length > 1 && args[1].trim().equals("-debug")) mode = Mode.Debug;
            if (args.length > 1 && args[1].trim().equals("-info")) mode = Mode.Info;
 
            if (args[0].matches(YOUTUBE_REGEX)) {
+               if (!args[0].startsWith("http")) args[0] = "https://" + args[0];
+               if (args[0].startsWith("http://")) args[0] = args[0].replace("http://", "https://");
                Log.print("Please wait a moment...", Mode.Silent, true);
                YT.saveYoutubeFile(args[0]);
            } else {

@@ -1,7 +1,7 @@
 package com.youtube.download;
 
 /**
- * Created by torquemada on 12/22/14.
+ * Created by Daniil Monakhov on 12/22/14.
  */
 public class Log {
 
