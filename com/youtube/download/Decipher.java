@@ -17,26 +17,26 @@ public class Decipher {
             StringBuilder body = NetUtil.getBody(urlToPage/* + "&gl=US&hl=en_US"*/);
             String html5PlayerLink = StringUtil.getHtml5PlayerLink(body, null);
             String html5PlayerName = StringUtil.getHtml5PlayerName(html5PlayerLink, null);
-            System.out.println("Player: " + html5PlayerName);
+            Log.print("Player: " + html5PlayerName, YT.Mode.Info, true);
             StringBuilder scrambleBody = new StringBuilder(NetUtil.getBody("http://" + html5PlayerLink));
             decodeFunction = StringUtil.getDecodeFunction(scrambleBody, name);
-            System.out.print("Old sig: " + sig);
-            System.out.println("\t" + sig.split("\\.")[0].length() + "." + sig.split("\\.")[1].length());
+            Log.print("Old sig: " + sig + "\t" + sig.split("\\.")[0].length() + "." + sig.split("\\.")[1].length(),
+                    YT.Mode.Debug, true);
             engine.eval(decodeFunction);
-            System.out.println("Decode function: " + decodeFunction);
+            Log.print("Decode function: " + decodeFunction, YT.Mode.Debug, true);
             String res = engine.eval(name.toString() + "('" + sig + "')").toString();
-            System.out.print("New sig: " + res);
-            System.out.println("\t" + res.split("\\.")[0].length() + "." + res.split("\\.")[1].length());
+            Log.print("New sig: " + res + "\t" + res.split("\\.")[0].length() + "." + res.split("\\.")[1].length(),
+                    YT.Mode.Debug, true);
             return res;
         } catch (ScriptException e) {
-            System.err.println("Can't translate javascript decrypt code." + e.getMessage());
-            System.err.println("Decode function: " + decodeFunction);
+            Log.print("Can't translate javascript decrypt code." + e.getMessage(), YT.Mode.Debug, false);
+            Log.print("Decode function: " + decodeFunction, YT.Mode.Debug, false);
             return sig;
         } catch (IOException e) {
-            System.err.println("Can't get body. " + e.getMessage());
+            Log.print("Can't get body. " + e.getMessage(), YT.Mode.Debug, false);
             return sig;
         } catch (RuntimeException e) {
-            System.err.println("Can't get body. " + e.getMessage());
+            Log.print("Can't get body. " + e.getMessage(), YT.Mode.Debug, false);
             return sig;
         }
     }
@@ -45,7 +45,7 @@ public class Decipher {
     public static void main(String[] args) {
         String str = "/\\/s.ytimg.com\\/yts\\/cssbin\\/www-player-vflPfi1TF.css\", \"js\": \"\\/\\/s.ytimg.com\\/yts\\/jsbin\\/html5player-en_US-vflsXGZP2\\/html5player.js\", \"html\": \"\\/html5_player_template\"}};ytplayer.load = function() {yt.player";
         String player = StringUtil.getHtml5PlayerLink(new StringBuilder(str), null);
-        System.out.println("Player: " + player);
+        Log.print("Player: " + player, YT.Mode.Info, true);
          try {
             ScriptEngineManager engineManager = new ScriptEngineManager();
             ScriptEngine engine = engineManager.getEngineByName("nashorn");

@@ -15,26 +15,23 @@ import java.util.*;
 *
 */
 public class YT {
-
-
+    enum Mode {
+        Silent, Info, Debug
+    }
     enum YoutubeVideoInfo {
         Link, Title
     }
 
+    static Mode mode = Mode.Silent;
     private static boolean GET_FROM_MAIN_PAGE = true;
     private static HashMap<String, String> pars = null;
     private static final String VIDEO_LINK = "link";
     private static final String VALIDATION_ERROR_MESSAGE = "Please type or paste valid youtube video URL";
     private static final String COMMON_ERROR_MESSAGE = "Can't download youtube video: ";
-//    private static final String GET_LINK_ERROR_MESSAGE = "Can't get link to the video";
     private static final String PARAMETERS_TO_REMOVE = "fallback_host,type,codecs,quality," + VIDEO_LINK;
-//    private static final String PROTOCOL = "http";
     static final String VIDEO_INFO_URL = "http://www.youtube.com/get_video_info?el=detailpage&asv=3&video_id=";
     private static final String VIDEO_STREAM = "url_encoded_fmt_stream_map";
-    //    private static final String VIDEO_STREAM = "adaptive_fmts";
     private static final String TITLE = "title";
-
-    static final String FILENAME_REGEX = "^[^/:;*?'\"<>|%,#$!+{}&\\[\\]\\\\]+";
     private static final String YOUTUBE_REGEX = "^(?:https?:\\/\\/)?(?:www\\.)?(?:youtu\\.be\\/|youtube\\.com\\/(?:embed\\/|v\\/|watch\\?v=|watch\\?.+&v=))((\\w|-){11})(?:\\S+)?$";
 
     private synchronized static void saveYoutubeFile(String url) {
@@ -42,13 +39,14 @@ public class YT {
             HashMap<YoutubeVideoInfo, String> info = new HashMap<>();
             obtainYoutubeVideo(url, info);
             String title = StringUtil.decode(info.get(YoutubeVideoInfo.Title));
-            System.out.println("Title: " + title);
-            System.out.println("Link to video: " + info.get(YoutubeVideoInfo.Link));
+            Log.print("Title: " + title, Mode.Info, true);
+            Log.print("Link to video: " + info.get(YoutubeVideoInfo.Link), Mode.Debug, true);
             NetUtil.saveToDisk(new URL(info.get(YoutubeVideoInfo.Link)), title + ".mp4");
 //            NetUtil.saveToDisk(new URL(info.get(YoutubeVideoInfo.Link)), (title.matches(YT.FILENAME_REGEX) ? title : "video" +
 //                    timestamp()) + ".mp4");
         } catch (IOException e) {
-            System.err.println(COMMON_ERROR_MESSAGE + e.getMessage());
+            Log.print(COMMON_ERROR_MESSAGE, Mode.Silent, false);
+            Log.print(e.getMessage(), Mode.Debug, false);
         }
     }
 
@@ -56,31 +54,28 @@ public class YT {
         String videoId = StringUtil.getParameter(url.trim(), "\\?", "v");
         if (videoId == null) throw new IOException("Video ID can't be equals null");
 
-//        String videoInfo2 = NetUtil.getVideoInfo2(url);
         String streamMap = null;
         if (GET_FROM_MAIN_PAGE) streamMap = NetUtil.getVideoInfo2(url);
         else streamMap = StringUtil.getParameter(NetUtil.getVideoInfo(videoId), "", VIDEO_STREAM);
 
-        System.out.println("Decoded videoInfo: " + streamMap);
+        Log.print("Decoded videoInfo: " + streamMap, Mode.Debug, true);
         if (streamMap == null) {
             throw new IOException("Video information does not contain link to mp4");
         }
-//        String title = StringUtil.getParameter(/*videoInfo*/ "", "", TITLE);
         String title = StringUtil.getParameter(NetUtil.getVideoInfo(videoId), "", TITLE);
         info.put(YoutubeVideoInfo.Title, title);
         String decodedUrl = StringUtil.decode(streamMap);
-//        String decodedUrl = streamMap;
         String[] urls = decodedUrl.split("url=");
         HashMap<String, HashMap<String, String>> videoData = new HashMap<>();
         for (int i = 0; i < urls.length; i++) {
             HashMap<String, String> hm = getVideoData(urls[i]);
             if (hm == null) continue;
             videoData.put(hm.get("itag"), hm);
-            System.out.println(urls[i]);
+            Log.print(urls[i], Mode.Debug, true);
         }
 
         String videoLink = getFinalUrl(videoData, url).replaceFirst(StringUtil.AMP + "s(ig)?=", StringUtil.AMP + "signature=");
-        info.put(YoutubeVideoInfo.Link, videoLink/* + (videoLink.endsWith(StringUtil.AMP) ? "" : StringUtil.AMP) + TITLE + "=" + title*/);
+        info.put(YoutubeVideoInfo.Link, videoLink);
     }
 
 
@@ -150,19 +145,19 @@ public class YT {
        return new java.sql.Timestamp(Calendar.getInstance().getTime().getTime()).getTime();
    }
 
-   public static void main(String[] args) {
+   public static void main(String... args) {
        if (args.length == 0) {
-           System.err.println(VALIDATION_ERROR_MESSAGE);
-           System.err.println();
+           Log.print(VALIDATION_ERROR_MESSAGE, Mode.Silent, false);
        } else {
+           if (args.length > 1 && args[1].trim().equals("-debug")) mode = Mode.Debug;
+           if (args.length > 1 && args[1].trim().equals("-info")) mode = Mode.Info;
+
            if (args[0].matches(YOUTUBE_REGEX)) {
-               System.out.println("Please wait a moment...");
+               Log.print("Please wait a moment...", Mode.Silent, true);
                YT.saveYoutubeFile(args[0]);
            } else {
-               System.out.println(VALIDATION_ERROR_MESSAGE);
+               Log.print(VALIDATION_ERROR_MESSAGE, Mode.Silent, true);
            }
        }
    }
 }
-
-

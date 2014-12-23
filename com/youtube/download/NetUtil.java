@@ -17,7 +17,7 @@ public class NetUtil {
     static StringBuilder getBody(String u) throws IOException {
         StringBuilder body = response.get(u);
         if (body == null) {
-            System.out.println("try to get body of " + u);
+            Log.print("try to get body of " + u, YT.Mode.Info, true);
             URL url = new URL(u);
             body = new StringBuilder(getBody(url));
             response.put(u, body);
@@ -42,7 +42,7 @@ public class NetUtil {
         if (videoInfo == null)
             videoInfo = StringUtil.getParameter(getVideoInfo(StringUtil.getParameter(url.trim(), "\\?", "v")), "", StringUtil.VIDEO_STREAM);
         if (videoInfo == null) throw new RuntimeException("Can't obtain video info");
-        System.out.println("Undecoded videoInfo: " + videoInfo);
+        Log.print("Undecoded videoInfo: " + videoInfo, YT.Mode.Debug, true);
         return StringUtil.decode(videoInfo);
     }
 
@@ -67,7 +67,7 @@ public class NetUtil {
             fos = new FileOutputStream("video" + YT.timestamp() + ".mp4");
         }
         fos.getChannel().transferFrom(rbc, 0, Long.MAX_VALUE);
-        System.out.println("Check " + System.getProperty("user.dir") + " for file");
+        Log.print("Check " + System.getProperty("user.dir") + " for file", YT.Mode.Silent, true);
     }
 }
 
