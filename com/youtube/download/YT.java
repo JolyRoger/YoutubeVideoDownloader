@@ -3,6 +3,8 @@ package com.youtube.download;
 import java.io.*;
 import java.net.URL;
 import java.util.*;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 /**
 * Java or Scala code which downloads mp4 video from youtube url,
@@ -14,7 +16,7 @@ import java.util.*;
 public class YT {
 
     enum Mode {
-        Silent, Info, Debug
+        Silent, Info, Debug, Chatty
     }
     enum YoutubeVideoInfo {
         Link, Title
@@ -52,6 +54,8 @@ public class YT {
         }
     }
 
+    static String signature = null;
+
     private static void obtainYoutubeVideo(String url, HashMap<YoutubeVideoInfo, String> info) throws IOException {
         String videoId = StringUtil.getParameter(url.trim(), "\\?", "v");
         if (videoId == null) throw new IOException("Video ID can't be equals null");
@@ -60,7 +64,7 @@ public class YT {
         if (GET_FROM_MAIN_PAGE) streamMap = NetUtil.getVideoInfo2(url);
         else streamMap = StringUtil.getParameter(NetUtil.getVideoInfo(videoId), "", VIDEO_STREAM);
 
-        Log.print("Decoded videoInfo: " + streamMap + '\n', Mode.Debug, true);
+        Log.print("Decoded videoInfo: " + streamMap + '\n', Mode.Chatty, true);
         if (streamMap == null) {
             throw new IOException("Video information does not contain link to mp4");
         }
@@ -71,18 +75,25 @@ public class YT {
         HashMap<String, HashMap<String, String>> videoData = new HashMap<>();
         for (int i = 0; i < urls.length; i++) {
             HashMap<String, String> hm = getVideoData(urls[i]);
-            if (hm == null) continue;
+            Log.print(urls[i], Mode.Chatty, true);
+            if (hm == null) {
+                Matcher m = Pattern.compile("([0-9A-Z]{40,})\\.([0-9A-Z]{40,})").matcher(decodedUrl);
+                if (m.find()) YT.signature = m.group();
+                videoData.put("-1", hm);
+                continue;
+            }
             videoData.put(hm.get("itag"), hm);
-            Log.print(urls[i], Mode.Debug, true);
         }
 
-        String videoLink = getFinalUrl(videoData, url).replaceFirst(StringUtil.AMP + "s(ig)?=", StringUtil.AMP + "signature=");
+        Log.print("Available itags: " + videoData.keySet(), Mode.Debug, true);
+
+        String videoLink = getFinalUrl(videoData, url);
         info.put(YoutubeVideoInfo.Link, videoLink);
     }
 
 
     private static HashMap<String, String> getVideoData(String url) {
-        if (!url.startsWith("http")) return null;
+//        if (!url.startsWith("http")) return null;
         String[] equalities = url.split("[?&]");
         HashMap<String, String> out = new HashMap<>();
         out.put(VIDEO_LINK, url.substring(0, url.indexOf("?")));
@@ -109,7 +120,32 @@ public class YT {
         out.put(data[0].trim(), data[1].replaceAll(",", "%2C").replaceAll("/","%2F"));
     }
 
-    private static String getFinalUrl(HashMap<String, HashMap<String, String>> meta, String url) throws IOException {
+    private static String getFinalUrl(HashMap<String, HashMap<String, String>> meta, String url) throws IOException, RuntimeException {
+        HashMap<String, String> data = getPrefferedItag(meta);
+        if (data == null) throw new IOException("Can't get mp4 itag parameter");
+        Log.print("Selected itag: " + data.get("itag"), Mode.Debug, true);
+        StringBuilder sb = new StringBuilder();
+        String[] remove = PARAMETERS_TO_REMOVE.split(",");
+        boolean crypted = false;
+
+        sb.append(data.get(VIDEO_LINK) + "?");
+        for (String s : data.keySet()) {
+            if (contains(s, remove)) continue;
+//            String sig = data.get(s);
+            String sig = (YT.signature == null ? data.get(s) : YT.signature);
+            if (/*sig.matches("s(ig)?(nature)?")*/"s".equals(s) || "sig".equals(s) || "signature".equals(s) && sig.length() > 81) {       // 81 is 40.40 - length of unscrambled youtube signature
+                crypted = true;
+                Log.print("Video is " + "crypted", Mode.Info, true);
+                sb.append("signature=" + Decipher.decipher(sig, url) + StringUtil.AMP);
+            } else {
+                sb.append(s + "=" + data.get(s) + StringUtil.AMP);
+            }
+        }
+        if (!crypted) Log.print("Video is not crypted", Mode.Info, true);
+        return sb.substring(0, sb.length() - 1);
+    }
+
+    private static HashMap<String, String> getPrefferedItag(HashMap<String, HashMap<String, String>> meta) {
         HashMap<String, String>  data = meta.get("22");
         if (data == null) data = meta.get("37");
         if (data == null) data = meta.get("38");
@@ -122,23 +158,7 @@ public class YT {
         if (data == null) data = meta.get("134");
         if (data == null) data = meta.get("133");
         if (data == null) data = meta.get("160");
-        if (data == null) throw new RuntimeException("Can't obtain mp4 itag parameter");
-
-        StringBuilder sb = new StringBuilder();
-        String[] remove = PARAMETERS_TO_REMOVE.split(",");
-
-        sb.append(data.get(VIDEO_LINK) + "?");
-        for (String s : data.keySet()) {
-            if (contains(s, remove)) continue;
-            String sig = data.get(s);
-            if ("s".equals(s) || "sig".equals(s) || "signature".equals(s) && sig.length() > 81) {       // 81 is 40.40 - length of unscrambled youtube signature
-                Log.print("Video is crypted", Mode.Info, true);
-                sb.append(s + "=" + Decipher.decipher(sig, url) + StringUtil.AMP);
-            } else {
-                sb.append(s + "=" + data.get(s) + StringUtil.AMP);
-            }
-        }
-        return sb.substring(0, sb.length()-1);
+        return data;
     }
 
     private static boolean contains(String s, String[] sArr) {
@@ -155,8 +175,9 @@ public class YT {
            Log.print(VALIDATION_ERROR_MESSAGE, Mode.Silent, false);
            Log.print(COMMON_INFO, Mode.Silent, true);
        } else {
-           if (args.length > 1 && args[1].trim().equals("-debug")) mode = Mode.Debug;
-           if (args.length > 1 && args[1].trim().equals("-info")) mode = Mode.Info;
+           if (args.length > 1 && args[1].toLowerCase().trim().equals("-debug")) mode = Mode.Debug;
+           if (args.length > 1 && args[1].toLowerCase().trim().equals("-info")) mode = Mode.Info;
+           if (args.length > 1 && args[1].toLowerCase().trim().equals("-chatty")) mode = Mode.Chatty;
 
            if (args[0].matches(YOUTUBE_REGEX)) {
                if (!args[0].startsWith("http")) args[0] = "https://" + args[0];
