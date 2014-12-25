@@ -99,19 +99,26 @@ public class StringUtil {
         return null;
     }
 
-    static String[] getParameterList(String videoUrl, String divider) {
-        String[] pList;
-        if (divider != null && !divider.isEmpty()) {
-            String[] parameters = videoUrl.split(divider);
-            pList = parameters[parameters.length - 1].split(AMP);
-        } else pList = videoUrl.split(AMP);
-        return pList;
+    static String[] getParameterList(String videoUrl) {
+        String[] parameters = videoUrl.split("\\?");
+        if (parameters.length > 1) {
+            return parameters[1].split(AMP);
+        } else return parameters[0].split(AMP);
     }
 
-    static String getParameter(String videoUrl, String divider, String key) {
-        return getParameter(getParameterList(videoUrl, divider), key);
+
+
+    static String getParameter(String videoUrl, String key) {
+        return getParameter(getParameterList(videoUrl), key);
     }
 
+    static String trimSignature(String s) {
+        Matcher m = Pattern.compile("([0-9A-Z]{40,})\\.([0-9A-Z]{40,})").matcher(s);
+        if (m.find()) {
+            return m.group();
+        }
+        return s;
+    }
 
     public static String getVideoInfo(StringBuilder body) throws IOException {
         String pattern = "\\\"\\s*" + StringUtil.VIDEO_STREAM + "\\s*\\\"\\s*:.*?\\\".*?\\\"";

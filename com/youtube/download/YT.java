@@ -55,18 +55,34 @@ public class YT {
     }
 
     private static void obtainYoutubeVideo(String url, HashMap<YoutubeVideoInfo, String> info) throws IOException {
-        String videoId = StringUtil.getParameter(url.trim(), "\\?", "v");
+        String videoId = StringUtil.getParameter(url.trim(), "v");
         if (videoId == null) throw new IOException("Video ID can't be equals null");
 
-        String streamMap = null;
+        if (mode == Mode.Chatty) {
+            String stremaMap0 = StringUtil.getParameter(NetUtil.getVideoInfo(videoId), VIDEO_STREAM);
+            String decodedUrl0 = StringUtil.decode(stremaMap0);
+            Log.print("Stream map0: " + decodedUrl0, Mode.Chatty, true);
+            String[] urls0 = decodedUrl0.split("url=");
+            HashMap<String, String> sigMap = new HashMap<>();
+            for (int i = 0; i < urls0.length; i++) {
+                String par = StringUtil.getParameter(urls0[i], "s");
+                if (par != null) {
+                    String[] parr = par.split("\\.");
+                    Log.print(urls0[i] + "\t" + (parr != null && parr.length > 1 ? (parr[0].length() + "." + parr[1].length()) : ("???")), Mode.Chatty, true);
+                } else Log.print(urls0[i] + "\t" + "No sig", Mode.Chatty, true);
+            }
+            System.out.println("-----------------------------------------------------------------------------\n\n");
+        }
+
+        String streamMap;
         if (GET_FROM_MAIN_PAGE) streamMap = NetUtil.getVideoInfo2(url);
-        else streamMap = StringUtil.getParameter(NetUtil.getVideoInfo(videoId), "", VIDEO_STREAM);
+        else streamMap = StringUtil.getParameter(NetUtil.getVideoInfo(videoId), VIDEO_STREAM);
 
         Log.print("Decoded videoInfo: " + streamMap + '\n', Mode.Chatty, true);
         if (streamMap == null) {
             throw new IOException("Video information does not contain link to mp4");
         }
-        String title = StringUtil.getParameter(NetUtil.getVideoInfo(videoId), "", TITLE);
+        String title = StringUtil.getParameter(NetUtil.getVideoInfo(videoId), TITLE);
         info.put(YoutubeVideoInfo.Title, title);
         String decodedUrl = StringUtil.decode(streamMap);
         String[] urls = decodedUrl.split("url=");
@@ -91,11 +107,11 @@ public class YT {
 
     private static void appendValidSignature(HashMap<String, HashMap<String, String>> noHttpVideoData, HashMap<String, String> itagData) {
         String itag = itagData.get("itag");
-        System.out.println("Itag: " + itag);
         if (noHttpVideoData.containsKey(itag)) {
             System.out.println("noHttpVideoData containsKey " + itag);
             HashMap<String, String> nhData = noHttpVideoData.get(itag);
             itagData.putAll(nhData);
+            Log.print("Put all unhttp fields to data", Mode.Chatty, true);
             return;
         } else {
             noHttpVideoData.forEach((k, v) -> {
@@ -103,6 +119,7 @@ public class YT {
                     System.out.println("v does not contains itag at all");
                     v.forEach((a,b) -> {
                         if (a.matches("s(ig)?(nature)?")) {
+                            Log.print("Change old " + a + " with new: " + b, Mode.Chatty, true);
                             itagData.put(a, b);
                         }
                     });
@@ -113,7 +130,7 @@ public class YT {
         }
     }
 
-    private static HashMap<String, String> getVideoData(String url) {
+    public static HashMap<String, String> getVideoData(String url) {
 //        if (!url.startsWith("http")) return null;
         String[] equalities = url.split("[?&]");
         HashMap<String, String> out = new HashMap<>();
@@ -139,7 +156,7 @@ public class YT {
         }
         String[] data = equality.split("=");
         if (out.containsKey(data[0].trim())) return;
-        out.put(data[0].trim(), data[1].replaceAll(",", "%2C").replaceAll("/","%2F"));
+        out.put(data[0].trim(), data[1]/*.replaceAll(",", "%2C").replaceAll("/","%2F")*/);
     }
 
     private static String composeUrl(HashMap<String, String> data, String url) throws IOException, RuntimeException {
@@ -156,7 +173,7 @@ public class YT {
             if ("s".equals(s) || "sig".equals(s) || "signature".equals(s) && sig.length() > 81) {       // 81 is 40.40 - length of unscrambled youtube signature
                 crypted = true;
                 Log.print("Video is " + "crypted", Mode.Info, true);
-                sb.append("signature=" + Decipher.decipher(sig, url) + StringUtil.AMP);
+                sb.append("signature=" + Decipher.decipher(StringUtil.trimSignature(sig), url) + StringUtil.AMP);
             } else {
                 sb.append(s + "=" + data.get(s) + StringUtil.AMP);
             }
@@ -166,10 +183,10 @@ public class YT {
     }
 
     private static HashMap<String, String> getPrefferedItag(HashMap<String, HashMap<String, String>> meta) {
-        HashMap<String, String>  data = meta.get("18");
+        HashMap<String, String>  data = meta.get("22");
         if (data == null) data = meta.get("37");
         if (data == null) data = meta.get("38");
-        if (data == null) data = meta.get("22");
+        if (data == null) data = meta.get("18");
         if (data == null) data = meta.get("138");
         if (data == null) data = meta.get("264");
         if (data == null) data = meta.get("137");
